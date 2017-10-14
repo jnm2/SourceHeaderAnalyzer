@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+    <Metadata>
+        <Identity Id="SourceHeaderAnalyzer.Debug.c769f6f3-2007-4cb0-8b66-dbbfc833647b" Version="1.0" Language="en-US" Publisher="jnm2" />
+        <DisplayName>SourceHeaderAnalyzer.Debug</DisplayName>
+        <Description xml:space="preserve">SourceHeaderAnalyzer.Debug</Description>
+    </Metadata>
+    <Dependencies>
+        <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.7,)" />
+    </Dependencies>
+    <Assets>
+        <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="SourceHeaderAnalyzer" Path="|SourceHeaderAnalyzer|" />
+        <Asset Type="Microsoft.VisualStudio.Analyzer" d:Source="Project" d:ProjectName="SourceHeaderAnalyzer" Path="|SourceHeaderAnalyzer|" />
+    </Assets>
+    <Prerequisites>
+        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[15.0,)" DisplayName="Visual Studio core editor" />
+    </Prerequisites>
+</PackageManifest>
