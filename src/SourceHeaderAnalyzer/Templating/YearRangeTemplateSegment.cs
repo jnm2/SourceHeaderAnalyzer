@@ -8,20 +8,18 @@ namespace SourceHeaderAnalyzer.Templating
     public sealed class YearRangeTemplateSegment : TemplateSegment
     {
         private readonly int startYear;
-        private readonly int currentYear;
 
-        public YearRangeTemplateSegment(int startYear, int currentYear)
+        public YearRangeTemplateSegment(int startYear, DynamicTemplateValues currentValuesForValidation)
         {
-            if (startYear < 1000 || startYear > 9999) throw new ArgumentOutOfRangeException(nameof(startYear), startYear, "Start year must be between 1000 and 9999, inclusive.");
-            if (currentYear < startYear || currentYear > 9999) throw new ArgumentOutOfRangeException(nameof(currentYear), currentYear, "Current year must be between start year and 9999, inclusive.");
+            if (startYear < 1000 || startYear > currentValuesForValidation.CurrentYear)
+                throw new ArgumentOutOfRangeException(nameof(startYear), startYear, "Start year must be between 1000 and the current year, inclusive.");
 
             this.startYear = startYear;
-            this.currentYear = currentYear;
         }
 
-        public override void AppendToTextEvaluation(StringBuilder textBuilder)
+        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder)
         {
-            BuildText(textBuilder, startYear, currentYear);
+            BuildText(textBuilder, startYear, currentValues.CurrentYear);
         }
 
         public override void AppendToMatchRegex(StringBuilder regexBuilder)
@@ -34,19 +32,25 @@ namespace SourceHeaderAnalyzer.Templating
             textBuilder.Append(startYear);
 
             if (startYear != currentYear)
+            {
+                if (currentYear < 1000 || currentYear > 9999)
+                    throw new ArgumentOutOfRangeException(nameof(currentYear), currentYear, "Current year must be between 1000 and 9999, inclusive.");
+
                 textBuilder.Append('–').Append(currentYear); // (en dash)
+            }
         }
 
-        public override TemplateSegmentMatchResult GetMatchResult(string matchText, int start, int length, ImmutableArray<Group> innerGroups)
+        public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
         {
             var matchStartYear = int.Parse(innerGroups[0].Value);
             var matchCurrentYear = innerGroups.Length == 2 ? int.Parse(innerGroups[1].Value) : matchStartYear;
 
             var errorMessages = ImmutableArray.CreateBuilder<string>();
             if (matchCurrentYear < matchStartYear)
-                errorMessages.Add($"The start year ({matchStartYear}) must not be greater than the end year ({matchCurrentYear}).");
-            if (currentYear < matchCurrentYear)
-                errorMessages.Add($"The year {matchCurrentYear} is invalid. The current year is {currentYear}.");
+                errorMessages.Add($"The end year ({matchCurrentYear}) must be greater than or equal to the start year ({matchStartYear}).");
+
+            if (currentValues.CurrentYear < matchCurrentYear)
+                errorMessages.Add($"The year {matchCurrentYear} is invalid. The current year is {currentValues.CurrentYear}.");
 
             var exactText = new StringBuilder();
             BuildText(exactText, matchStartYear, matchCurrentYear);
@@ -54,7 +58,7 @@ namespace SourceHeaderAnalyzer.Templating
             return new TemplateSegmentMatchResult(
                 isInexact: exactText.Length != length || string.Compare(exactText.ToString(), 0, matchText, start, length, StringComparison.OrdinalIgnoreCase) != 0,
                 errorMessages: errorMessages.ToImmutable(),
-                updateMessages: matchCurrentYear < currentYear ? ImmutableArray.Create($"The current year is {currentYear}.") : ImmutableArray<string>.Empty);
+                updateMessages: matchCurrentYear < currentValues.CurrentYear ? ImmutableArray.Create($"The current year is {currentValues.CurrentYear}.") : ImmutableArray<string>.Empty);
         }
     }
 }

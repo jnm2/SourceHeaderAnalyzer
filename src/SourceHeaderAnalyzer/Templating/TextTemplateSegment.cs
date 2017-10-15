@@ -14,7 +14,7 @@ namespace SourceHeaderAnalyzer.Templating
             this.text = text ?? throw new ArgumentNullException(nameof(text));
         }
 
-        public override void AppendToTextEvaluation(StringBuilder textBuilder)
+        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder)
         {
             textBuilder.Append(text);
         }
@@ -24,7 +24,7 @@ namespace SourceHeaderAnalyzer.Templating
             regexBuilder.Append(Regex.Replace(Regex.Replace(Regex.Escape(text), @"(?:\\\s)+", @"\s+"), @"\(\s*c\s*\)|©", @"(?:\(\s*c\s*\)|©)"));
         }
 
-        public override TemplateSegmentMatchResult GetMatchResult(string matchText, int start, int length, ImmutableArray<Group> innerGroups)
+        public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
         {
             return new TemplateSegmentMatchResult(
                 isInexact: text.Length != length || string.Compare(text, 0, matchText, start, length, StringComparison.OrdinalIgnoreCase) != 0,

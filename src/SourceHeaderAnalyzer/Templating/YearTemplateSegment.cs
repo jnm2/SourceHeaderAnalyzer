@@ -7,17 +7,15 @@ namespace SourceHeaderAnalyzer.Templating
 {
     public sealed class YearTemplateSegment : TemplateSegment
     {
-        private readonly int currentYear;
+        public static YearTemplateSegment Instance { get; } = new YearTemplateSegment();
+        private YearTemplateSegment() { }
 
-        public YearTemplateSegment(int currentYear)
+        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder)
         {
-            if (currentYear < 1000 || currentYear > 9999) throw new ArgumentOutOfRangeException(nameof(currentYear), currentYear, "Year must be between 1000 and 9999, inclusive.");
-            this.currentYear = currentYear;
-        }
+            if (currentValues.CurrentYear < 1000 || currentValues.CurrentYear > 9999)
+                throw new ArgumentOutOfRangeException(nameof(currentValues), currentValues.CurrentYear, "Current year must be between 1000 and 9999, inclusive.");
 
-        public override void AppendToTextEvaluation(StringBuilder textBuilder)
-        {
-            textBuilder.Append(currentYear);
+            textBuilder.Append(currentValues.CurrentYear);
         }
 
         public override void AppendToMatchRegex(StringBuilder regexBuilder)
@@ -25,14 +23,14 @@ namespace SourceHeaderAnalyzer.Templating
             regexBuilder.Append(@"\d{4}");
         }
 
-        public override TemplateSegmentMatchResult GetMatchResult(string matchText, int start, int length, ImmutableArray<Group> innerGroups)
+        public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
         {
             var year = int.Parse(matchText.Substring(start, length));
 
             return new TemplateSegmentMatchResult(
                 isInexact: false,
-                errorMessages: currentYear < year ? ImmutableArray.Create($"The year {year} is invalid. The current year is {currentYear}.") : ImmutableArray<string>.Empty,
-                updateMessages: year < currentYear ? ImmutableArray.Create($"The current year is {currentYear}.") : ImmutableArray<string>.Empty);
+                errorMessages: currentValues.CurrentYear < year ? ImmutableArray.Create($"The year {year} is invalid. The current year is {currentValues.CurrentYear}.") : ImmutableArray<string>.Empty,
+                updateMessages: year < currentValues.CurrentYear ? ImmutableArray.Create($"The current year is {currentValues.CurrentYear}.") : ImmutableArray<string>.Empty);
         }
     }
 }

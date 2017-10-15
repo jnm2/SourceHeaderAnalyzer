@@ -30,7 +30,7 @@ namespace SourceHeaderAnalyzer.Templating
             return new Regex(regexBuilder.ToString(), RegexOptions.IgnoreCase);
         }
 
-        public bool TryMatch(string text, out MatchResult result)
+        public bool TryMatch(string text, DynamicTemplateValues currentValues, out MatchResult result)
         {
             var match = regex.Value.Match(text);
             if (!match.Success)
@@ -59,7 +59,7 @@ namespace SourceHeaderAnalyzer.Templating
                     }
                 }
 
-                var segmentResult = segments[i].GetMatchResult(text, segmentGroup.Index, segmentGroup.Length, innerGroups.ToImmutable());
+                var segmentResult = segments[i].GetMatchResult(currentValues, text, segmentGroup.Index, segmentGroup.Length, innerGroups.ToImmutable());
 
                 isInexact |= segmentResult.IsInexact;
                 errorMessages.AddRange(segmentResult.ErrorMessages);
