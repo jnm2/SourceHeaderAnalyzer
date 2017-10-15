@@ -21,7 +21,11 @@ namespace SourceHeaderAnalyzer.Templating
 
         public override void AppendToMatchRegex(StringBuilder regexBuilder)
         {
-            regexBuilder.Append(Regex.Replace(Regex.Replace(Regex.Escape(text), @"(?:\\\s)+", @"\s+"), @"\(\s*c\s*\)|©", @"(?:\(\s*c\s*\)|©)"));
+            var escaped = Regex.Escape(text);
+            var detectCopyrightSymbolChanges = Regex.Replace(escaped, @"\(\s*c\s*\)|©", @"(?:\(\s*c\s*\)|©)");
+            var detectWhitespaceChanges = Regex.Replace(detectCopyrightSymbolChanges, @"(?:\\[\srnt])+", @"\s*");
+
+            regexBuilder.Append(detectWhitespaceChanges);
         }
 
         public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
