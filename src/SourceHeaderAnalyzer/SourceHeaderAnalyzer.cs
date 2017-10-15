@@ -12,40 +12,52 @@ namespace SourceHeaderAnalyzer
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SourceHeaderAnalyzer : DiagnosticAnalyzer
     {
-        private static readonly DiagnosticDescriptor UnconfiguredHeaderTemplateDiagnostic = new DiagnosticDescriptor(
+        public static readonly DiagnosticDescriptor MissingHeaderTemplateDiagnostic = new DiagnosticDescriptor(
             "SHA0000",
-            "Exactly one header *.cs.template file must be configured for this project.",
+            "A header *.cs.template file must be added to this project.",
+            "A header *.cs.template file must be added to this project. Create a file at the highest-level folder where the header applies and reference it in each project like this:\r\n" +
+            "\r\n" +
+            "  <ItemGroup>\r\n" +
+            "    <AdditionalFiles Include=\"..\\..\\Header.cs.template\" />\r\n" +
+            "  </ItemGroup>\r\n",
+            "Codebase",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor MisconfiguredHeaderTemplateDiagnostic = new DiagnosticDescriptor(
+            "SHA0001",
+            "Header *.cs.template file configuration is invalid.",
             "{0}",
             "Codebase",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor IncorrectHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0001",
-            "The file does not have the correct header.",
-            "The file does not have the correct header.",
-            "Codebase",
-            DiagnosticSeverity.Error,
-            isEnabledByDefault: true);
-
-        private static readonly DiagnosticDescriptor MisplacedHeaderDiagnostic = new DiagnosticDescriptor(
+        public static readonly DiagnosticDescriptor IncorrectHeaderDiagnostic = new DiagnosticDescriptor(
             "SHA0002",
+            "The file does not have the correct header.",
+            "The file does not have the correct header.",
+            "Codebase",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor MisplacedHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0003",
             "Nothing must come before the file header.",
             "Nothing must come before the file header.",
             "Codebase",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor OutdatedHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0003",
+        public static readonly DiagnosticDescriptor OutdatedHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0004",
             "The header is not current.",
             "{0}",
             "Codebase",
             DiagnosticSeverity.Info,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor InvalidHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0004",
+        public static readonly DiagnosticDescriptor InvalidHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0005",
             "The header has invalid information.",
             "{0}",
             "Codebase",
@@ -53,7 +65,8 @@ namespace SourceHeaderAnalyzer
             isEnabledByDefault: true);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(
-            UnconfiguredHeaderTemplateDiagnostic,
+            MissingHeaderTemplateDiagnostic,
+            MisconfiguredHeaderTemplateDiagnostic,
             IncorrectHeaderDiagnostic,
             MisplacedHeaderDiagnostic,
             OutdatedHeaderDiagnostic,
@@ -121,17 +134,12 @@ namespace SourceHeaderAnalyzer
 
                 case 0:
                     return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        "A header *.cs.template file has not been configured for this project. Create a file at the highest-level folder where the header applies and reference it in each project like this:\r\n" +
-                        "\r\n" +
-                        "  <ItemGroup>\r\n" +
-                        "    <AdditionalFiles Include=\"..\\..\\Header.cs.template\" />\r\n" +
-                        "  </ItemGroup>\r\n");
+                        MissingHeaderTemplateDiagnostic,
+                        CreateTopLineLocation(context.Tree, text));
 
                 default:
                     return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
+                        MisconfiguredHeaderTemplateDiagnostic,
                         CreateTopLineLocation(context.Tree, text),
                         "More than one header *.cs.template file has been added to this project. Remove all but one of them from the project’s <AdditionalFiles> items.");
             }
@@ -142,7 +150,7 @@ namespace SourceHeaderAnalyzer
                 if (!File.Exists(file[0].Path))
                 {
                     return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
+                        MisconfiguredHeaderTemplateDiagnostic,
                         CreateTopLineLocation(context.Tree, text),
                         $"{file[0].Path} does not exist.");
                 }
@@ -153,7 +161,7 @@ namespace SourceHeaderAnalyzer
             return TemplateParser.Parse(new SourceTextReader(fileText)).Select(
                 template => template,
                 errorMessage => Diagnostic.Create(
-                    UnconfiguredHeaderTemplateDiagnostic,
+                    MisconfiguredHeaderTemplateDiagnostic,
                     CreateTopLineLocation(context.Tree, text),
                     $"Error in {file[0].Path}: {errorMessage}"));
         }
