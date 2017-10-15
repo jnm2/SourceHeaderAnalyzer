@@ -7,21 +7,21 @@ namespace SourceHeaderAnalyzer.Templating
 {
     public sealed class TextTemplateSegment : TemplateSegment
     {
-        private readonly string text;
+        public string Text { get; }
 
         public TextTemplateSegment(string text)
         {
-            this.text = text ?? throw new ArgumentNullException(nameof(text));
+            Text = text ?? throw new ArgumentNullException(nameof(text));
         }
 
         public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder, TemplateSegmentMatchResult previousMatchResult = null)
         {
-            textBuilder.Append(text);
+            textBuilder.Append(Text);
         }
 
         public override void AppendToMatchRegex(StringBuilder regexBuilder)
         {
-            var escaped = Regex.Escape(text);
+            var escaped = Regex.Escape(Text);
             var detectCopyrightSymbolChanges = Regex.Replace(escaped, @"\(\s*c\s*\)|©", @"(?:\(\s*c\s*\)|©)");
             var detectWhitespaceChanges = Regex.Replace(detectCopyrightSymbolChanges, @"(?:\\[\srnt])+", @"\s*");
 
@@ -31,7 +31,7 @@ namespace SourceHeaderAnalyzer.Templating
         public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
         {
             return new TemplateSegmentMatchResult(
-                isInexact: text.Length != length || string.Compare(text, 0, matchText, start, length, StringComparison.OrdinalIgnoreCase) != 0,
+                isInexact: Text.Length != length || string.Compare(Text, 0, matchText, start, length, StringComparison.OrdinalIgnoreCase) != 0,
                 errorMessages: ImmutableArray<string>.Empty,
                 updateMessages: ImmutableArray<string>.Empty);
         }

@@ -7,12 +7,13 @@ namespace SourceHeaderAnalyzer.Templating
 {
     public sealed class HeaderTemplate
     {
-        private readonly ImmutableArray<TemplateSegment> segments;
+        public ImmutableArray<TemplateSegment> Segments { get; }
+
         private readonly Lazy<Regex> regex;
 
         public HeaderTemplate(ImmutableArray<TemplateSegment> segments)
         {
-            this.segments = segments;
+            Segments = segments;
             regex = new Lazy<Regex>(CreateRegex);
         }
 
@@ -20,10 +21,10 @@ namespace SourceHeaderAnalyzer.Templating
         {
             var regexBuilder = new StringBuilder();
 
-            for (var i = 0; i < segments.Length; i++)
+            for (var i = 0; i < Segments.Length; i++)
             {
                 regexBuilder.Append("(?<HeaderTemplate_segment").Append(i).Append('>');
-                segments[i].AppendToMatchRegex(regexBuilder);
+                Segments[i].AppendToMatchRegex(regexBuilder);
                 regexBuilder.Append(')');
             }
 
@@ -43,7 +44,7 @@ namespace SourceHeaderAnalyzer.Templating
             var updateMessages = ImmutableArray.CreateBuilder<string>();
             var isInexact = false;
 
-            for (var i = 0; i < segments.Length; i++)
+            for (var i = 0; i < Segments.Length; i++)
             {
                 var segmentGroup = match.Groups["HeaderTemplate_segment" + i];
 
@@ -59,7 +60,7 @@ namespace SourceHeaderAnalyzer.Templating
                     }
                 }
 
-                var segmentResult = segments[i].GetMatchResult(currentValues, text, segmentGroup.Index, segmentGroup.Length, innerGroups.ToImmutable());
+                var segmentResult = Segments[i].GetMatchResult(currentValues, text, segmentGroup.Index, segmentGroup.Length, innerGroups.ToImmutable());
 
                 isInexact |= segmentResult.IsInexact;
                 errorMessages.AddRange(segmentResult.ErrorMessages);

@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2002
+VisualStudioVersion = 15.0.26730.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceHeaderAnalyzer", "SourceHeaderAnalyzer\SourceHeaderAnalyzer.csproj", "{9BB54ADB-71E7-47F9-9DBA-78B1585275ED}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceHeaderAnalyzer.Debug", "SourceHeaderAnalyzer.Debug\SourceHeaderAnalyzer.Debug.csproj", "{D387BF40-BC05-43B2-A353-D7822DF8FCCE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceHeaderAnalyzer.Tests", "SourceHeaderAnalyzer.Tests\SourceHeaderAnalyzer.Tests.csproj", "{D1F773DA-2DA0-46FA-AB95-1345E0FCBA82}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{D387BF40-BC05-43B2-A353-D7822DF8FCCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D387BF40-BC05-43B2-A353-D7822DF8FCCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D387BF40-BC05-43B2-A353-D7822DF8FCCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1F773DA-2DA0-46FA-AB95-1345E0FCBA82}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1F773DA-2DA0-46FA-AB95-1345E0FCBA82}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1F773DA-2DA0-46FA-AB95-1345E0FCBA82}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1F773DA-2DA0-46FA-AB95-1345E0FCBA82}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
