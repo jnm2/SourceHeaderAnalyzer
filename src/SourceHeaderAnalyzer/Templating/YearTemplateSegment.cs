@@ -10,7 +10,7 @@ namespace SourceHeaderAnalyzer.Templating
         public static YearTemplateSegment Instance { get; } = new YearTemplateSegment();
         private YearTemplateSegment() { }
 
-        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder)
+        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder, TemplateSegmentMatchResult previousMatchResult = null)
         {
             if (currentValues.CurrentYear < 1000 || currentValues.CurrentYear > 9999)
                 throw new ArgumentOutOfRangeException(nameof(currentValues), currentValues.CurrentYear, "Current year must be between 1000 and 9999, inclusive.");

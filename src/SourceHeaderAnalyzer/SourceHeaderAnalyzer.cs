@@ -60,7 +60,7 @@ namespace SourceHeaderAnalyzer
 
             var currentValues = new DynamicTemplateValues(DateTime.Now.Year);
 
-            if (GetHeaderTemplate(currentValues).TryMatch(text.ToString(), currentValues, out var result))
+            if (GetHeaderTemplate().TryMatch(text.ToString(), currentValues, out var result))
             {
                 if (result.Start != 0)
                     context.ReportDiagnostic(Diagnostic.Create(MisplacedHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(0, result.Start))));
@@ -85,14 +85,14 @@ namespace SourceHeaderAnalyzer
             }
         }
 
-        private static HeaderTemplate GetHeaderTemplate(DynamicTemplateValues currentValuesForValidation)
+        private static HeaderTemplate GetHeaderTemplate()
         {
             return new HeaderTemplate(new TemplateSegment[]
             {
                 new TextTemplateSegment("// Copyright © "),
                 YearTemplateSegment.Instance,
                 new TextTemplateSegment(" (range: "),
-                new YearRangeTemplateSegment(DateTime.Now.Year - 1, currentValuesForValidation),
+                YearRangeTemplateSegment.Instance,
                 new TextTemplateSegment(")")
             }.ToImmutableArray());
         }

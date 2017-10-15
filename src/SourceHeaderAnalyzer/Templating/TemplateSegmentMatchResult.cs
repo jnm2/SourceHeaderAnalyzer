@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace SourceHeaderAnalyzer.Templating
 {
-    public struct TemplateSegmentMatchResult
+    public class TemplateSegmentMatchResult
     {
         public bool IsInexact { get; }
         public ImmutableArray<string> ErrorMessages { get; }

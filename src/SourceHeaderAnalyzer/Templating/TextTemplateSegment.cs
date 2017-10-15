@@ -14,7 +14,7 @@ namespace SourceHeaderAnalyzer.Templating
             this.text = text ?? throw new ArgumentNullException(nameof(text));
         }
 
-        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder)
+        public override void AppendToTextEvaluation(DynamicTemplateValues currentValues, StringBuilder textBuilder, TemplateSegmentMatchResult previousMatchResult = null)
         {
             textBuilder.Append(text);
         }
