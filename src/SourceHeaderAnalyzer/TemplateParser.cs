@@ -21,11 +21,13 @@ namespace SourceHeaderAnalyzer
                 switch (c)
                 {
                     case -1:
-                        if (buffer.Length != 0)
-                        {
-                            segments.Add(new TextTemplateSegment(buffer.ToString()));
-                            buffer.Clear();
-                        }
+                        if (buffer.Length == 0 && segments.Count == 0)
+                            return new HeaderTemplate(ImmutableArray<TemplateSegment>.Empty);
+
+                        if (!buffer.EndsWithOrdinal(Environment.NewLine))
+                            buffer.AppendLine();
+
+                        segments.Add(new TextTemplateSegment(buffer.ToString()));
                         return new HeaderTemplate(segments.ToImmutable());
 
                     case '{':
