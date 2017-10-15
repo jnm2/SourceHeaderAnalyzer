@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -11,6 +12,14 @@ namespace SourceHeaderAnalyzer
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SourceHeaderAnalyzer : DiagnosticAnalyzer
     {
+        private static readonly DiagnosticDescriptor UnconfiguredHeaderTemplateDiagnostic = new DiagnosticDescriptor(
+            "SHA0000",
+            "Exactly one header *.cs.template file must be configured for this project.",
+            "{0}",
+            "Codebase",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
         private static readonly DiagnosticDescriptor IncorrectHeaderDiagnostic = new DiagnosticDescriptor(
             "SHA0001",
             "The file does not have the correct header.",
@@ -44,6 +53,7 @@ namespace SourceHeaderAnalyzer
             isEnabledByDefault: true);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(
+            UnconfiguredHeaderTemplateDiagnostic,
             IncorrectHeaderDiagnostic,
             MisplacedHeaderDiagnostic,
             OutdatedHeaderDiagnostic,
@@ -58,43 +68,94 @@ namespace SourceHeaderAnalyzer
         {
             var text = context.Tree.GetText(context.CancellationToken);
 
-            var currentValues = new DynamicTemplateValues(DateTime.Now.Year);
+            var templateResult = GetHeaderTemplate(context, text);
 
-            if (GetHeaderTemplate().TryMatch(text.ToString(), currentValues, out var result))
+            if (templateResult.TryGetItem1(out var headerTemplate))
             {
-                if (result.Start != 0)
-                    context.ReportDiagnostic(Diagnostic.Create(MisplacedHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(0, result.Start))));
+                if (headerTemplate != null)
+                {
+                    var currentValues = new DynamicTemplateValues(DateTime.Now.Year);
 
-                if (result.IsInexact)
-                    context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length))));
+                    if (headerTemplate.TryMatch(text.ToString(), currentValues, out var result))
+                    {
+                        if (result.Start != 0)
+                            context.ReportDiagnostic(Diagnostic.Create(MisplacedHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(0, result.Start))));
 
-                foreach (var errorMessage in result.ErrorMessages)
-                    context.ReportDiagnostic(Diagnostic.Create(InvalidHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length)), errorMessage));
+                        if (result.IsInexact)
+                            context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length))));
 
-                foreach (var updateMessage in result.UpdateMessages)
-                    context.ReportDiagnostic(Diagnostic.Create(OutdatedHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length)), updateMessage));
+                        foreach (var errorMessage in result.ErrorMessages)
+                            context.ReportDiagnostic(Diagnostic.Create(InvalidHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length)), errorMessage));
+
+                        foreach (var updateMessage in result.UpdateMessages)
+                            context.ReportDiagnostic(Diagnostic.Create(OutdatedHeaderDiagnostic, Location.Create(context.Tree, new TextSpan(result.Start, result.Length)), updateMessage));
+                    }
+                    else
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, CreateTopLineLocation(context.Tree, text)));
+                    }
+                }
             }
-            else
+            else if (templateResult.TryGetItem2(out var diagnostic))
             {
-                var endOfFirstNonWhitespaceLine = text.Lines
-                    .FirstOrDefault(_ => !string.IsNullOrWhiteSpace(_.ToString()))
-                    .End;
-
-                context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, Location.Create(context.Tree,
-                    new TextSpan(0, endOfFirstNonWhitespaceLine != 0 ? endOfFirstNonWhitespaceLine : text.Length))));
+                context.ReportDiagnostic(diagnostic);
             }
         }
 
-        private static HeaderTemplate GetHeaderTemplate()
+        private static Location CreateTopLineLocation(SyntaxTree tree, SourceText text)
         {
-            return new HeaderTemplate(new TemplateSegment[]
+            var endOfFirstNonWhitespaceLine = text.Lines
+                .FirstOrDefault(_ => !string.IsNullOrWhiteSpace(_.ToString()))
+                .End;
+
+            return Location.Create(tree, new TextSpan(0, endOfFirstNonWhitespaceLine != 0 ? endOfFirstNonWhitespaceLine : text.Length));
+        }
+
+        private static OneOf<HeaderTemplate, Diagnostic> GetHeaderTemplate(SyntaxTreeAnalysisContext context, SourceText text)
+        {
+            var file = context.Options.AdditionalFiles.Where(_ => _.Path.EndsWith(".cs.template", StringComparison.Ordinal)).Take(2).ToList();
+            switch (file.Count)
             {
-                new TextTemplateSegment("// Copyright © "),
-                YearTemplateSegment.Instance,
-                new TextTemplateSegment(" (range: "),
-                YearRangeTemplateSegment.Instance,
-                new TextTemplateSegment(")")
-            }.ToImmutableArray());
+                case 1:
+                    break;
+
+                case 0:
+                    return Diagnostic.Create(
+                        UnconfiguredHeaderTemplateDiagnostic,
+                        CreateTopLineLocation(context.Tree, text),
+                        "A header *.cs.template file has not been configured for this project. Create a file at the highest-level folder where the header applies and reference it in each project like this:\r\n" +
+                        "\r\n" +
+                        "  <ItemGroup>\r\n" +
+                        "    <AdditionalFiles Include=\"..\\..\\Header.cs.template\" />\r\n" +
+                        "  </ItemGroup>\r\n");
+
+                default:
+                    return Diagnostic.Create(
+                        UnconfiguredHeaderTemplateDiagnostic,
+                        CreateTopLineLocation(context.Tree, text),
+                        "More than one header *.cs.template file has been added to this project. Remove all but one of them from the project’s <AdditionalFiles> items.");
+            }
+
+            var fileText = file[0].GetText(context.CancellationToken);
+            if (fileText.Length == 0)
+            {
+                if (!File.Exists(file[0].Path))
+                {
+                    return Diagnostic.Create(
+                        UnconfiguredHeaderTemplateDiagnostic,
+                        CreateTopLineLocation(context.Tree, text),
+                        $"{file[0].Path} does not exist.");
+                }
+
+                return (HeaderTemplate)null;
+            }
+
+            return TemplateParser.Parse(new SourceTextReader(fileText)).Select(
+                template => template,
+                errorMessage => Diagnostic.Create(
+                    UnconfiguredHeaderTemplateDiagnostic,
+                    CreateTopLineLocation(context.Tree, text),
+                    $"Error in {file[0].Path}: {errorMessage}"));
         }
     }
 }
