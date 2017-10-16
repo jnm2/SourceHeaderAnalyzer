@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
@@ -81,13 +83,19 @@ namespace SourceHeaderAnalyzer
         {
             var text = context.Tree.GetText(context.CancellationToken);
 
-            var templateResult = GetHeaderTemplate(context, text);
+            var templateResult =
+                AnalyzerAndFixAbstraction.GetHeaderTemplate(
+                    context.Options.AdditionalFiles,
+                    _ => _.Path,
+                    _ => Task.FromResult(_.GetText(context.CancellationToken)),
+                    () => CreateTopLineLocation(context.Tree, text))
+                .AssertCompletedSynchronously();
 
             if (templateResult.TryGetItem1(out var headerTemplate))
             {
                 if (headerTemplate != null)
                 {
-                    var currentValues = new DynamicTemplateValues(DateTime.Now.Year);
+                    var currentValues = AnalyzerAndFixAbstraction.GetCurrentValues();
 
                     if (headerTemplate.TryMatch(text.ToString(), currentValues, out var result))
                     {
@@ -105,7 +113,10 @@ namespace SourceHeaderAnalyzer
                     }
                     else
                     {
-                        context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, CreateTopLineLocation(context.Tree, text)));
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            IncorrectHeaderDiagnostic,
+                            CreateTopLineLocation(context.Tree, text),
+                            new Dictionary<string, string> { [ReplaceHeaderFixProvider.IsInsertOnlyProperty] = "True" }.ToImmutableDictionary()));
                     }
                 }
             }
@@ -122,48 +133,6 @@ namespace SourceHeaderAnalyzer
                 .End;
 
             return Location.Create(tree, new TextSpan(0, endOfFirstNonWhitespaceLine != 0 ? endOfFirstNonWhitespaceLine : text.Length));
-        }
-
-        private static OneOf<HeaderTemplate, Diagnostic> GetHeaderTemplate(SyntaxTreeAnalysisContext context, SourceText text)
-        {
-            var file = context.Options.AdditionalFiles.Where(_ => _.Path.EndsWith(".cs.template", StringComparison.Ordinal)).Take(2).ToList();
-            switch (file.Count)
-            {
-                case 1:
-                    break;
-
-                case 0:
-                    return Diagnostic.Create(
-                        MissingHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text));
-
-                default:
-                    return Diagnostic.Create(
-                        MisconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        "More than one header *.cs.template file has been added to this project. Remove all but one of them from the project’s <AdditionalFiles> items.");
-            }
-
-            var fileText = file[0].GetText(context.CancellationToken);
-            if (fileText.Length == 0)
-            {
-                if (!File.Exists(file[0].Path))
-                {
-                    return Diagnostic.Create(
-                        MisconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        $"{file[0].Path} does not exist.");
-                }
-
-                return (HeaderTemplate)null;
-            }
-
-            return TemplateParser.Parse(new SourceTextReader(fileText)).Select(
-                template => template,
-                errorMessage => Diagnostic.Create(
-                    MisconfiguredHeaderTemplateDiagnostic,
-                    CreateTopLineLocation(context.Tree, text),
-                    $"Error in {file[0].Path}: {errorMessage}"));
         }
     }
 }
