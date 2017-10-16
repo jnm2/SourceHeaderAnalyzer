@@ -30,7 +30,8 @@ namespace SourceHeaderAnalyzer.Templating
 
             regexBuilder.Append(detectWhitespaceChanges);
 
-            regexBuilder.Append(Regex.Escape(endingWhitespace.Value));
+            var detectWhitespaceChangesExceptNewLines = Regex.Replace(Regex.Escape(endingWhitespace.Value), @"(?:\\[\st])*(?=\\r|(?<!\\r)\\n)", @"[^\S\r\n]*");
+            regexBuilder.Append(detectWhitespaceChangesExceptNewLines);
         }
 
         public override TemplateSegmentMatchResult GetMatchResult(DynamicTemplateValues currentValues, string matchText, int start, int length, ImmutableArray<Group> innerGroups)
