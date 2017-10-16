@@ -17,6 +17,27 @@ namespace SourceHeaderAnalyzer.Templating
             regex = new Lazy<Regex>(CreateRegex);
         }
 
+        public void Evaluate(DynamicTemplateValues currentValues, StringBuilder textBuilder, string previousText, out int previousMatchStart, out int previousMatchLength)
+        {
+            if (previousText != null && TryMatch(previousText, currentValues, out previousMatchStart, out previousMatchLength, out var segmentResults))
+            {
+                for (var i = 0; i < Segments.Length; i++)
+                    Segments[i].AppendToTextEvaluation(currentValues, textBuilder, segmentResults[i]);
+            }
+            else
+            {
+                previousMatchStart = -1;
+                previousMatchLength = -1;
+                Evaluate(currentValues, textBuilder);
+            }
+        }
+
+        public void Evaluate(DynamicTemplateValues currentValues, StringBuilder textBuilder)
+        {
+            foreach (var segment in Segments)
+                segment.AppendToTextEvaluation(currentValues, textBuilder);
+        }
+
         private Regex CreateRegex()
         {
             var regexBuilder = new StringBuilder();
@@ -31,18 +52,18 @@ namespace SourceHeaderAnalyzer.Templating
             return new Regex(regexBuilder.ToString(), RegexOptions.IgnoreCase);
         }
 
-        public bool TryMatch(string text, DynamicTemplateValues currentValues, out MatchResult result)
+        private bool TryMatch(string text, DynamicTemplateValues currentValues, out int start, out int length, out ImmutableArray<TemplateSegmentMatchResult> segmentResults)
         {
             var match = regex.Value.Match(text);
             if (!match.Success)
             {
-                result = default;
+                start = default;
+                length = default;
+                segmentResults = default;
                 return false;
             }
 
-            var errorMessages = ImmutableArray.CreateBuilder<string>();
-            var updateMessages = ImmutableArray.CreateBuilder<string>();
-            var isInexact = false;
+            var segmentResultsBuilder = ImmutableArray.CreateBuilder<TemplateSegmentMatchResult>(Segments.Length);
 
             for (var i = 0; i < Segments.Length; i++)
             {
@@ -60,16 +81,42 @@ namespace SourceHeaderAnalyzer.Templating
                     }
                 }
 
-                var segmentResult = Segments[i].GetMatchResult(currentValues, text, segmentGroup.Index, segmentGroup.Length, innerGroups.ToImmutable());
+                segmentResultsBuilder.Add(Segments[i].GetMatchResult(
+                    currentValues,
+                    text,
+                    segmentGroup.Index,
+                    segmentGroup.Length,
+                    innerGroups.ToImmutable()));
+            }
 
+            start = match.Index;
+            length = match.Length;
+            segmentResults = segmentResultsBuilder.ToImmutable();
+            return true;
+        }
+
+        public bool TryMatch(string text, DynamicTemplateValues currentValues, out MatchResult result)
+        {
+            if (!TryMatch(text, currentValues, out var start, out var length, out var segmentResults))
+            {
+                result = default;
+                return false;
+            }
+
+            var isInexact = false;
+            var errorMessages = ImmutableArray.CreateBuilder<string>();
+            var updateMessages = ImmutableArray.CreateBuilder<string>();
+
+            foreach (var segmentResult in segmentResults)
+            {
                 isInexact |= segmentResult.IsInexact;
                 errorMessages.AddRange(segmentResult.ErrorMessages);
                 updateMessages.AddRange(segmentResult.UpdateMessages);
             }
 
             result = new MatchResult(
-                match.Index,
-                match.Length,
+                start,
+                length,
                 isInexact,
                 errorMessages.ToImmutable(),
                 updateMessages.ToImmutable());

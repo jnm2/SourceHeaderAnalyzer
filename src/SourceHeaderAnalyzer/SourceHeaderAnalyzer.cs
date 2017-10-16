@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
@@ -12,40 +14,52 @@ namespace SourceHeaderAnalyzer
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SourceHeaderAnalyzer : DiagnosticAnalyzer
     {
-        private static readonly DiagnosticDescriptor UnconfiguredHeaderTemplateDiagnostic = new DiagnosticDescriptor(
+        public static readonly DiagnosticDescriptor MissingHeaderTemplateDiagnostic = new DiagnosticDescriptor(
             "SHA0000",
-            "Exactly one header *.cs.template file must be configured for this project.",
+            "A header *.cs.template file must be added to this project.",
+            "A header *.cs.template file must be added to this project. Create a file at the highest-level folder where the header applies and reference it in each project like this:\r\n" +
+            "\r\n" +
+            "  <ItemGroup>\r\n" +
+            "    <AdditionalFiles Include=\"..\\..\\Header.cs.template\" />\r\n" +
+            "  </ItemGroup>\r\n",
+            "Codebase",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor MisconfiguredHeaderTemplateDiagnostic = new DiagnosticDescriptor(
+            "SHA0001",
+            "Header *.cs.template file configuration is invalid.",
             "{0}",
             "Codebase",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor IncorrectHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0001",
-            "The file does not have the correct header.",
-            "The file does not have the correct header.",
-            "Codebase",
-            DiagnosticSeverity.Error,
-            isEnabledByDefault: true);
-
-        private static readonly DiagnosticDescriptor MisplacedHeaderDiagnostic = new DiagnosticDescriptor(
+        public static readonly DiagnosticDescriptor IncorrectHeaderDiagnostic = new DiagnosticDescriptor(
             "SHA0002",
+            "The file does not have the correct header.",
+            "The file does not have the correct header.",
+            "Codebase",
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor MisplacedHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0003",
             "Nothing must come before the file header.",
             "Nothing must come before the file header.",
             "Codebase",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor OutdatedHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0003",
+        public static readonly DiagnosticDescriptor OutdatedHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0004",
             "The header is not current.",
             "{0}",
             "Codebase",
             DiagnosticSeverity.Info,
             isEnabledByDefault: true);
 
-        private static readonly DiagnosticDescriptor InvalidHeaderDiagnostic = new DiagnosticDescriptor(
-            "SHA0004",
+        public static readonly DiagnosticDescriptor InvalidHeaderDiagnostic = new DiagnosticDescriptor(
+            "SHA0005",
             "The header has invalid information.",
             "{0}",
             "Codebase",
@@ -53,7 +67,8 @@ namespace SourceHeaderAnalyzer
             isEnabledByDefault: true);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(
-            UnconfiguredHeaderTemplateDiagnostic,
+            MissingHeaderTemplateDiagnostic,
+            MisconfiguredHeaderTemplateDiagnostic,
             IncorrectHeaderDiagnostic,
             MisplacedHeaderDiagnostic,
             OutdatedHeaderDiagnostic,
@@ -68,13 +83,19 @@ namespace SourceHeaderAnalyzer
         {
             var text = context.Tree.GetText(context.CancellationToken);
 
-            var templateResult = GetHeaderTemplate(context, text);
+            var templateResult =
+                AnalyzerAndFixAbstraction.GetHeaderTemplate(
+                    context.Options.AdditionalFiles,
+                    _ => _.Path,
+                    _ => Task.FromResult(_.GetText(context.CancellationToken)),
+                    () => CreateTopLineLocation(context.Tree, text))
+                .AssertCompletedSynchronously();
 
             if (templateResult.TryGetItem1(out var headerTemplate))
             {
                 if (headerTemplate != null)
                 {
-                    var currentValues = new DynamicTemplateValues(DateTime.Now.Year);
+                    var currentValues = AnalyzerAndFixAbstraction.GetCurrentValues();
 
                     if (headerTemplate.TryMatch(text.ToString(), currentValues, out var result))
                     {
@@ -92,7 +113,10 @@ namespace SourceHeaderAnalyzer
                     }
                     else
                     {
-                        context.ReportDiagnostic(Diagnostic.Create(IncorrectHeaderDiagnostic, CreateTopLineLocation(context.Tree, text)));
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            IncorrectHeaderDiagnostic,
+                            CreateTopLineLocation(context.Tree, text),
+                            new Dictionary<string, string> { [ReplaceHeaderFixProvider.IsInsertOnlyProperty] = "True" }.ToImmutableDictionary()));
                     }
                 }
             }
@@ -109,53 +133,6 @@ namespace SourceHeaderAnalyzer
                 .End;
 
             return Location.Create(tree, new TextSpan(0, endOfFirstNonWhitespaceLine != 0 ? endOfFirstNonWhitespaceLine : text.Length));
-        }
-
-        private static OneOf<HeaderTemplate, Diagnostic> GetHeaderTemplate(SyntaxTreeAnalysisContext context, SourceText text)
-        {
-            var file = context.Options.AdditionalFiles.Where(_ => _.Path.EndsWith(".cs.template", StringComparison.Ordinal)).Take(2).ToList();
-            switch (file.Count)
-            {
-                case 1:
-                    break;
-
-                case 0:
-                    return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        "A header *.cs.template file has not been configured for this project. Create a file at the highest-level folder where the header applies and reference it in each project like this:\r\n" +
-                        "\r\n" +
-                        "  <ItemGroup>\r\n" +
-                        "    <AdditionalFiles Include=\"..\\..\\Header.cs.template\" />\r\n" +
-                        "  </ItemGroup>\r\n");
-
-                default:
-                    return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        "More than one header *.cs.template file has been added to this project. Remove all but one of them from the project’s <AdditionalFiles> items.");
-            }
-
-            var fileText = file[0].GetText(context.CancellationToken);
-            if (fileText.Length == 0)
-            {
-                if (!File.Exists(file[0].Path))
-                {
-                    return Diagnostic.Create(
-                        UnconfiguredHeaderTemplateDiagnostic,
-                        CreateTopLineLocation(context.Tree, text),
-                        $"{file[0].Path} does not exist.");
-                }
-
-                return (HeaderTemplate)null;
-            }
-
-            return TemplateParser.Parse(new SourceTextReader(fileText)).Select(
-                template => template,
-                errorMessage => Diagnostic.Create(
-                    UnconfiguredHeaderTemplateDiagnostic,
-                    CreateTopLineLocation(context.Tree, text),
-                    $"Error in {file[0].Path}: {errorMessage}"));
         }
     }
 }

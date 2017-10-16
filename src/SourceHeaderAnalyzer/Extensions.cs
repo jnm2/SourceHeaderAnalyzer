@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace SourceHeaderAnalyzer
 {
@@ -17,6 +18,13 @@ namespace SourceHeaderAnalyzer
                 if (builder[offset + i] != value[i]) return false;
 
             return true;
+        }
+
+        public static T AssertCompletedSynchronously<T>(this Task<T> task)
+        {
+            var awaiter = task.GetAwaiter();
+            if (!awaiter.IsCompleted) throw new InvalidOperationException("The task did not completed synchronously.");
+            return awaiter.GetResult();
         }
     }
 }
