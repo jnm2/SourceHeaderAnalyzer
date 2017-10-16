@@ -27,5 +27,15 @@ namespace SourceHeaderAnalyzer.Tests
 
             Assert.That(result, Has.Property("IsInexact").EqualTo(false));
         }
+        [Test]
+        public static void Only_correct_greed_if_exact()
+        {
+            var template = new HeaderTemplate(ImmutableArray.Create<TemplateSegment>(
+                new TextTemplateSegment("a a ")));
+
+            Assert.That(template.TryMatch("a  a ", default, out var result));
+
+            Assert.That(result, Has.Property("Length").EqualTo(5));
+        }
     }
 }
