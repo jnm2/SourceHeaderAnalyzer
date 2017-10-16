@@ -2,6 +2,7 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using SourceHeaderAnalyzer.Templating;
 
 namespace SourceHeaderAnalyzer
@@ -68,6 +69,8 @@ namespace SourceHeaderAnalyzer
             }
         }
 
+        private static readonly Regex NameSegmentRegex = new Regex(@"\AName\((?<default>.*)\)\Z", RegexOptions.IgnoreCase);
+
         /// <param name="reader">The current reader, positioned after the <c>{</c> character.</param>
         /// <param name="buffer">Must be empty and will be returned empty unless there is an exception.</param>
         private static OneOf<TemplateSegment, string> ParseSpecialSegment(TextReader reader, StringBuilder buffer)
@@ -91,6 +94,10 @@ namespace SourceHeaderAnalyzer
                         else if (name.Equals("YearRange", StringComparison.OrdinalIgnoreCase))
                         {
                             return YearRangeTemplateSegment.Instance;
+                        }
+                        else if (NameSegmentRegex.Match(name) is var match && match.Success)
+                        {
+                            return new NameTemplateSegment(match.Groups["default"].Value);
                         }
 
                         return $"Unrecognized special segment '{name}'";

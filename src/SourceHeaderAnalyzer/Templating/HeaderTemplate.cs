@@ -49,7 +49,7 @@ namespace SourceHeaderAnalyzer.Templating
                 regexBuilder.Append(')');
             }
 
-            return new Regex(regexBuilder.ToString(), RegexOptions.IgnoreCase);
+            return new Regex(regexBuilder.ToString(), RegexOptions.IgnoreCase | RegexOptions.Singleline);
         }
 
         private bool TryMatch(string text, DynamicTemplateValues currentValues, out int start, out int length, out ImmutableArray<TemplateSegmentMatchResult> segmentResults)
