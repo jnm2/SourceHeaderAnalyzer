@@ -65,6 +65,8 @@ namespace SourceHeaderAnalyzer.Templating
 
             var segmentResultsBuilder = ImmutableArray.CreateBuilder<TemplateSegmentMatchResult>(Segments.Length);
 
+            length = match.Length;
+
             for (var i = 0; i < Segments.Length; i++)
             {
                 var segmentGroup = match.Groups["HeaderTemplate_segment" + i];
@@ -81,16 +83,29 @@ namespace SourceHeaderAnalyzer.Templating
                     }
                 }
 
+                var segmentLength = segmentGroup.Length;
+
+                if (i == Segments.Length - 1)
+                {
+                    var lengthMeasure = new StringBuilder();
+                    Segments[i].AppendToTextEvaluation(currentValues, lengthMeasure);
+                    var greed = segmentGroup.Length - lengthMeasure.Length;
+                    if (0 < greed && regex.Value.IsMatch(text.Substring(0, segmentGroup.Index + lengthMeasure.Length)))
+                    {
+                        length -= greed;
+                        segmentLength -= greed;
+                    }
+                }
+
                 segmentResultsBuilder.Add(Segments[i].GetMatchResult(
                     currentValues,
                     text,
                     segmentGroup.Index,
-                    segmentGroup.Length,
+                    segmentLength,
                     innerGroups.ToImmutable()));
             }
 
             start = match.Index;
-            length = match.Length;
             segmentResults = segmentResultsBuilder.ToImmutable();
             return true;
         }
