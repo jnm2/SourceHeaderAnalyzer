@@ -21,16 +21,16 @@ namespace SourceHeaderAnalyzer.Templating
 
         public override void AppendToMatchRegex(StringBuilder regexBuilder)
         {
-            var endingWhitespace = Regex.Match(Text, @"\s+\Z");
+            var endingWhitespace = Regex.Match(Text, @"[\p{M}\p{Z}\p{P}\p{C}\\*]+\Z");
 
             var textWithoutEndingWhitespace = Text.Substring(0, Text.Length - endingWhitespace.Length);
             var escaped = Regex.Escape(textWithoutEndingWhitespace);
             var detectCopyrightSymbolChanges = Regex.Replace(escaped, @"\(\s*c\s*\)|©", @"(?:\(\s*c\s*\)|©)");
-            var detectWhitespaceChanges = Regex.Replace(detectCopyrightSymbolChanges, @"(?:\\[\srnt])+", @"\s*");
+            var detectWhitespaceChanges = Regex.Replace(detectCopyrightSymbolChanges, @"(?:(?:\\[\srnt])|[\p{M}\p{Z}\p{P}\p{C}\\*])+", @"[\p{M}\p{Z}\p{P}\p{C}\\*]*");
 
             regexBuilder.Append(detectWhitespaceChanges);
 
-            var detectWhitespaceChangesExceptNewLines = Regex.Replace(Regex.Escape(endingWhitespace.Value), @"(?:\\[\st])*(?=\\r|(?<!\\r)\\n)", @"[^\S\r\n]*");
+            var detectWhitespaceChangesExceptNewLines = Regex.Replace(Regex.Escape(endingWhitespace.Value), @"(?:(?:\\[\st])|[\p{M}\p{Z}\p{P}\p{C}\\*])*(?=\\r|(?<!\\r)\\n)", @"[\p{M}\p{Z}\p{P}\p{C}\\*-[\r\n]]*");
             regexBuilder.Append(detectWhitespaceChangesExceptNewLines);
         }
 
