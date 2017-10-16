@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
@@ -17,6 +16,7 @@ namespace SourceHeaderAnalyzer
     {
         public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(
             SourceHeaderAnalyzer.IncorrectHeaderDiagnostic.Id,
+            SourceHeaderAnalyzer.MisplacedHeaderDiagnostic.Id,
             SourceHeaderAnalyzer.OutdatedHeaderDiagnostic.Id,
             SourceHeaderAnalyzer.InvalidHeaderDiagnostic.Id);
 
@@ -30,14 +30,20 @@ namespace SourceHeaderAnalyzer
                     .Select(_ => (TextSpan?)_.Location.SourceSpan)
                     .FirstOrDefault();
 
-            var title = updateLocation == null ? "Insert header" : "Update header";
+            var moveToTop = context.Diagnostics.Any(_ => _.Id == SourceHeaderAnalyzer.MisplacedHeaderDiagnostic.Id);
+            var onlyMove = context.Diagnostics.All(_ => _.Id == SourceHeaderAnalyzer.MisplacedHeaderDiagnostic.Id);
+            var title =
+                updateLocation == null ? "Insert header" :
+                onlyMove ? "Move below header" :
+                moveToTop ? "Update and move header" :
+                "Update header";
 
-            context.RegisterCodeFix(CodeAction.Create(title, c => InsertOrUpdateHeader(context.Document, updateLocation, c)), context.Diagnostics);
+            context.RegisterCodeFix(CodeAction.Create(title, c => InsertOrUpdateHeader(context.Document, updateLocation, moveToTop, c)), context.Diagnostics);
 
             return Task.CompletedTask;
         }
 
-        private static async Task<Document> InsertOrUpdateHeader(Document document, TextSpan? updateLocation, CancellationToken cancellationToken)
+        private static async Task<Document> InsertOrUpdateHeader(Document document, TextSpan? updateLocation, bool moveToTop, CancellationToken cancellationToken)
         {
             var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
 
@@ -54,9 +60,16 @@ namespace SourceHeaderAnalyzer
             var template = templateResult.Item1;
 
             var updatedTextBuilder = new StringBuilder();
-            template.Evaluate(AnalyzerAndFixAbstraction.GetCurrentValues(), updatedTextBuilder, text.ToString());
+            template.Evaluate(AnalyzerAndFixAbstraction.GetCurrentValues(), updatedTextBuilder, text.ToString(), out var start, out var length);
 
-            return document.WithText(text.WithChanges(new TextChange(updateLocation ?? new TextSpan(0, 0), updatedTextBuilder.ToString())));
+            return document.WithText(
+                moveToTop
+                    ? text.WithChanges(
+                        new TextChange(new TextSpan(start, length), string.Empty),
+                        new TextChange(new TextSpan(0, 0), updatedTextBuilder.ToString()))
+                    : text.WithChanges(
+                        new TextChange(updateLocation ?? new TextSpan(0, 0), updatedTextBuilder.ToString()))
+            );
         }
     }
 }

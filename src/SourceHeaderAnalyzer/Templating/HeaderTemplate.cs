@@ -17,18 +17,25 @@ namespace SourceHeaderAnalyzer.Templating
             regex = new Lazy<Regex>(CreateRegex);
         }
 
-        public void Evaluate(DynamicTemplateValues currentValues, StringBuilder textBuilder, string previousText = null)
+        public void Evaluate(DynamicTemplateValues currentValues, StringBuilder textBuilder, string previousText, out int previousMatchStart, out int previousMatchLength)
         {
-            if (previousText != null && TryMatch(previousText, currentValues, out var _, out var _, out var segmentResults))
+            if (previousText != null && TryMatch(previousText, currentValues, out previousMatchStart, out previousMatchLength, out var segmentResults))
             {
                 for (var i = 0; i < Segments.Length; i++)
                     Segments[i].AppendToTextEvaluation(currentValues, textBuilder, segmentResults[i]);
             }
             else
             {
-                foreach (var segment in Segments)
-                    segment.AppendToTextEvaluation(currentValues, textBuilder);
+                previousMatchStart = -1;
+                previousMatchLength = -1;
+                Evaluate(currentValues, textBuilder);
             }
+        }
+
+        public void Evaluate(DynamicTemplateValues currentValues, StringBuilder textBuilder)
+        {
+            foreach (var segment in Segments)
+                segment.AppendToTextEvaluation(currentValues, textBuilder);
         }
 
         private Regex CreateRegex()
