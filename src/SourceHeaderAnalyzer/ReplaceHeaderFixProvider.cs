@@ -20,6 +20,8 @@ namespace SourceHeaderAnalyzer
             SourceHeaderAnalyzer.OutdatedHeaderDiagnostic.Id,
             SourceHeaderAnalyzer.InvalidHeaderDiagnostic.Id);
 
+        public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+
         public const string IsInsertOnlyProperty = "IsInsertOnly";
 
         public override Task RegisterCodeFixesAsync(CodeFixContext context)
