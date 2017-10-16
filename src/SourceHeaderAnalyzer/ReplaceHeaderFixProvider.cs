@@ -45,14 +45,13 @@ namespace SourceHeaderAnalyzer
 
         private static async Task<Document> InsertOrUpdateHeader(Document document, TextSpan? updateLocation, bool moveToTop, CancellationToken cancellationToken)
         {
-            var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var text = await document.GetTextAsync(cancellationToken);
 
             var templateResult = await AnalyzerAndFixAbstraction.GetHeaderTemplate(
                 document.Project.AdditionalDocuments,
                 _ => _.FilePath,
                 _ => _.GetTextAsync(cancellationToken),
-                () => null)
-                .ConfigureAwait(false);
+                () => null);
 
             if (templateResult.TryGetItem2(out _))
                 return document;

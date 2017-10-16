@@ -44,7 +44,7 @@ namespace SourceHeaderAnalyzer
 
             var templateFile = templateFiles[0];
 
-            var fileText = await textSelector.Invoke(templateFile).ConfigureAwait(false);
+            var fileText = await textSelector.Invoke(templateFile);
             if (fileText.Length == 0)
             {
                 var filePath = filePathSelector.Invoke(templateFile);
