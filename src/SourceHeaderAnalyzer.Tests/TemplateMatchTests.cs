@@ -27,6 +27,7 @@ namespace SourceHeaderAnalyzer.Tests
 
             Assert.That(result, Has.Property("IsInexact").EqualTo(false));
         }
+
         [Test]
         public static void Only_correct_greed_if_exact()
         {
@@ -36,6 +37,17 @@ namespace SourceHeaderAnalyzer.Tests
             Assert.That(template.TryMatch("a  a ", default, out var result));
 
             Assert.That(result, Has.Property("Length").EqualTo(5));
+        }
+
+        [Test]
+        public static void Allow_whitespace_greed_within_ending_lines()
+        {
+            var template = new HeaderTemplate(ImmutableArray.Create<TemplateSegment>(
+                new TextTemplateSegment("a\r\n\r\n")));
+
+            Assert.That(template.TryMatch("a \r\n \r\n \r\n", default, out var result));
+
+            Assert.That(result, Has.Property("Length").EqualTo(7));
         }
     }
 }
